@@ -1,2 +1,4 @@
 # CISC372_hw4
-Do not commit to this repository.  Please fork a copy into your own repository, then work from your personal forked copy.
+    USE "make image" to compile the original program
+    USE "make image_pt" to compile the pthread version
+    USE "make image_omp" to compile the OpenMP version
