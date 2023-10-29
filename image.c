@@ -3,6 +3,7 @@
 #include <time.h>
 #include <string.h>
 #include "image.h"
+#include <pthread.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -87,6 +88,31 @@ enum KernelTypes GetKernelType(char* type){
     else return IDENTITY;
 }
 
+typedef struct{
+	Image* srcImage;
+	Image* destImage;
+	Matrix algorithm;
+	int startRow;
+	int endRow;
+}ThreadData;
+
+void* convolute_threaded(void* arg) {
+    ThreadData* data = (ThreadData*) arg;
+    int row, pix, bit;
+
+    for (row = data->startRow; row < data->endRow; row++) {
+        for (pix = 0; pix < data->srcImage->width; pix++) {
+            for (bit = 0; bit < data->srcImage->bpp; bit++) {
+                data->destImage->data[Index(pix, row, data->srcImage->width, bit, data->srcImage->bpp)] =
+                    getPixelValue(data->srcImage, pix, row, bit, data->algorithm);
+            }
+        }
+    }
+
+    return NULL;
+}
+
+
 //main:
 //argv is expected to take 2 arguments.  First is the source file name (can be jpg, png, bmp, tga).  Second is the lower case name of the algorithm.
 int main(int argc,char** argv){
@@ -102,16 +128,36 @@ int main(int argc,char** argv){
     enum KernelTypes type=GetKernelType(argv[2]);
 
     Image srcImage,destImage,bwImage;   
-    srcImage.data=stbi_load(fileName,&srcImage.width,&srcImage.height,&srcImage.bpp,0);
+//    srcImage.data=stbi_load(fileName,&srcImage.width,&srcImage.height,&srcImage.bpp,0);
     if (!srcImage.data){
         printf("Error loading file %s.\n",fileName);
         return -1;
     }
-    destImage.bpp=srcImage.bpp;
-    destImage.height=srcImage.height;
-    destImage.width=srcImage.width;
-    destImage.data=malloc(sizeof(uint8_t)*destImage.width*destImage.bpp*destImage.height);
-    convolute(&srcImage,&destImage,algorithms[type]);
+//    destImage.bpp=srcImage.bpp;
+//    destImage.height=srcImage.height;
+//    destImage.width=srcImage.width;
+//    destImage.data=malloc(sizeof(uint8_t)*destImage.width*destImage.bpp*destImage.height);
+//    convolute(&srcImage,&destImage,algorithms[type]);
+  #define NUM_THREADS 4 
+	pthread_t threads[NUM_THREADS];
+	ThreadData threadData[NUM_THREADS];
+
+	int rowsPerThread = srcImage.height / NUM_THREADS;
+
+	for (int i = 0; i < NUM_THREADS; i++){
+		threadData[i].srcImage = &srcImage;
+		threadData[i].destImage = &destImage;
+		memcpy(threadData[i].algorithm, algorithms[type], sizeof(Matrix));
+		threadData[i].startRow = i * rowsPerThread;
+		threadData[i].endRow = (i == NUM_THREADS - 1) ? srcImage.height : (i + 1) * rowsPerThread;
+
+		pthread_create(&threads[i], NULL, convolute_threaded, &threadData[i]);
+	}	
+	
+	for (int i = 0; i < NUM_THREADS; i++){
+		pthread_join(threads[i], NULL);
+	}
+
     stbi_write_png("output.png",destImage.width,destImage.height,destImage.bpp,destImage.data,destImage.bpp*destImage.width);
     stbi_image_free(srcImage.data);
     
