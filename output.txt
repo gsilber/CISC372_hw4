@@ -1,0 +1,10 @@
+Script started on Mon Oct 30 18:41:15 2023
+^[]0;jhcoop@r1n10.darwin:~/CISC372_picProject^G^[[?1034h[jhcoop@r1n10 CISC372_picProject]$ srun ima$
+Took 6 seconds
+^[]0;jhcoop@r1n10.darwin:~/CISC372_picProject^G[jhcoop@r1n10 CISC372_picProject]$ srun image_pt pic$
+Took 6 seconds
+^[]0;jhcoop@r1n10.darwin:~/CISC372_picProject^G[jhcoop@r1n10 CISC372_picProject]$ exit
+exit
+
+Script done on Mon Oct 30 18:41:57 2023
+
