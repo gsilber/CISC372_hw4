@@ -3,6 +3,7 @@
 #include <time.h>
 #include <string.h>
 #include "image.h"
+#include <pthread.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -56,14 +57,34 @@ uint8_t getPixelValue(Image* srcImage,int x,int y,int bit,Matrix algorithm){
 //            destImage: A pointer to a  pre-allocated (including space for the pixel array) structure to receive the convoluted image.  It should be the same size as srcImage
 //            algorithm: The kernel matrix to use for the convolution
 //Returns: Nothing
-void convolute(Image* srcImage,Image* destImage,Matrix algorithm){
+/*void convolute(Image* srcImage,Image* destImage,Matrix algorithm){
     int row,pix,bit,span;
     span=srcImage->bpp*srcImage->bpp;
     for (row=0;row<srcImage->height;row++){
-        for (pix=0;pix<srcImage->width;pix++){
-            for (bit=0;bit<srcImage->bpp;bit++){
-                destImage->data[Index(pix,row,srcImage->width,bit,srcImage->bpp)]=getPixelValue(srcImage,pix,row,bit,algorithm);
-            }
+        pthread_create(&thread_handles[thread], NULL, &Hello, (void*)thread);
+    }
+}*/
+
+
+typedef struct {
+    Image* srcImage;
+    Image* destImage;
+    Matrix* algo;
+    int row;
+} ThreadArgs;
+
+void* threaded_convolute(void* args){
+    ThreadArgs* arguments = (ThreadArgs*)args;
+    Image* srcImage = arguments->srcImage;
+    Image* destImage = arguments->destImage;
+    Matrix* algorithm = arguments->algo;
+    int row = arguments->row;
+
+    int pix,bit,span;
+    span=srcImage->bpp*srcImage->bpp;
+    for(pix=0;pix<srcImage->width;pix++){
+        for (bit=0;bit<srcImage->bpp;bit++){
+            destImage->data[Index(pix,row,srcImage->width,bit,srcImage->bpp)]=getPixelValue(srcImage,pix,row,bit,*algorithm);
         }
     }
 }
@@ -93,6 +114,9 @@ int main(int argc,char** argv){
     long t1,t2;
     t1=time(NULL);
 
+    long thread_count;
+    pthread_t* thread_handles;
+
     stbi_set_flip_vertically_on_load(0); 
     if (argc!=3) return Usage();
     char* fileName=argv[1];
@@ -111,7 +135,26 @@ int main(int argc,char** argv){
     destImage.height=srcImage.height;
     destImage.width=srcImage.width;
     destImage.data=malloc(sizeof(uint8_t)*destImage.width*destImage.bpp*destImage.height);
-    convolute(&srcImage,&destImage,algorithms[type]);
+
+
+    printf("Hello from the parent thread\n");
+
+    thread_count = srcImage.height;
+    thread_handles = (pthread_t*)malloc((srcImage.height)*sizeof(pthread_t));
+
+
+
+    for (int row=0;row<(srcImage.height);row++){
+	ThreadArgs args = { &srcImage, &destImage, &algorithms[type], row };
+        pthread_create(&thread_handles[row], NULL, threaded_convolute, (void*)&args);
+    }
+    //convolute(&srcImage,&destImage,algorithms[type]);
+
+    for(int thread=0; thread<thread_count; thread++){
+        pthread_join(thread_handles[thread],NULL);
+    }
+    free(thread_handles);
+    
     stbi_write_png("output.png",destImage.width,destImage.height,destImage.bpp,destImage.data,destImage.bpp*destImage.width);
     stbi_image_free(srcImage.data);
     
