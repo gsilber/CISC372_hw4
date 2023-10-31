@@ -57,17 +57,6 @@ uint8_t getPixelValue(Image* srcImage,int x,int y,int bit,Matrix algorithm){
 //            destImage: A pointer to a  pre-allocated (including space for the pixel array) structure to receive the convoluted image.  It should be the same size as srcImage
 //            algorithm: The kernel matrix to use for the convolution
 //Returns: Nothing
-void convolute(Image* srcImage,Image* destImage,Matrix algorithm){
-    int row,pix,bit,span;
-    span=srcImage->bpp*srcImage->bpp;
-    for (row=0;row<srcImage->height;row++){
-        for (pix=0;pix<srcImage->width;pix++){
-            for (bit=0;bit<srcImage->bpp;bit++){
-                destImage->data[Index(pix,row,srcImage->width,bit,srcImage->bpp)]=getPixelValue(srcImage,pix,row,bit,algorithm);
-            }
-        }
-    }
-}
 
 //Usage: Prints usage information for the program
 //Returns: -1
@@ -91,9 +80,9 @@ enum KernelTypes GetKernelType(char* type){
 typedef struct{
 	Image* srcImage;
 	Image* destImage;
-	Matrix algorithm;
 	int startRow;
 	int endRow;
+	Matrix algorithm;
 }ThreadData;
 
 void* convolute_threaded(void* arg) {
@@ -104,14 +93,13 @@ void* convolute_threaded(void* arg) {
         for (pix = 0; pix < data->srcImage->width; pix++) {
             for (bit = 0; bit < data->srcImage->bpp; bit++) {
                 data->destImage->data[Index(pix, row, data->srcImage->width, bit, data->srcImage->bpp)] =
-                    getPixelValue(data->srcImage, pix, row, bit, data->algorithm);
+                    getPixelValue(data->srcImage, pix, row, bit, data -> algorithm);
             }
         }
     }
 
     return NULL;
 }
-
 
 //main:
 //argv is expected to take 2 arguments.  First is the source file name (can be jpg, png, bmp, tga).  Second is the lower case name of the algorithm.
@@ -128,13 +116,13 @@ int main(int argc,char** argv){
     enum KernelTypes type=GetKernelType(argv[2]);
 
     Image srcImage,destImage,bwImage;   
-//    srcImage.data=stbi_load(fileName,&srcImage.width,&srcImage.height,&srcImage.bpp,0);
+    srcImage.data=stbi_load(fileName,&srcImage.width,&srcImage.height,&srcImage.bpp,0);
     if (!srcImage.data){
         printf("Error loading file %s.\n",fileName);
         return -1;
     }
 //    destImage.bpp=srcImage.bpp;
-//    destImage.height=srcImage.height;
+//  destImage.height=srcImage.height;
 //    destImage.width=srcImage.width;
 //    destImage.data=malloc(sizeof(uint8_t)*destImage.width*destImage.bpp*destImage.height);
 //    convolute(&srcImage,&destImage,algorithms[type]);
@@ -147,7 +135,6 @@ int main(int argc,char** argv){
 	for (int i = 0; i < NUM_THREADS; i++){
 		threadData[i].srcImage = &srcImage;
 		threadData[i].destImage = &destImage;
-		memcpy(threadData[i].algorithm, algorithms[type], sizeof(Matrix));
 		threadData[i].startRow = i * rowsPerThread;
 		threadData[i].endRow = (i == NUM_THREADS - 1) ? srcImage.height : (i + 1) * rowsPerThread;
 
